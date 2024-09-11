@@ -210,6 +210,8 @@ def config_parser():
                         help='frequency of calculating the feature loss')
     parser.add_argument("--prepare", action='store_true',
                         help='Prepare depths for inpainting')
+    #parser.add_argument("--prepare", action='store_true',default=True,
+    #                    help='Prepare depths for inpainting')
     parser.add_argument("--lpips", action='store_true',
                         help='use perceptual loss for rgb inpainting')
     parser.add_argument("--N_gt", type=int, default=0,
@@ -388,6 +390,8 @@ def train():
                                                                                                          prepare=args.prepare,
                                                                                                          args=args)
 
+        #print("poses:", poses)
+        print("poses shape:", poses.shape)
         hwf = poses[0, :3, -1]
         poses = poses[:, :3, :4]
         print('Loaded llff', images.shape,
@@ -622,13 +626,22 @@ def train():
         if args.debug: # False
             print('rays.shape:', rays.shape)
         print('done, concats')
+        print(f'%%%%%%%%%%%%%%%%%%%%%%%%%{np.sum(np.isnan(masks))}')
         labels = np.expand_dims(masks, axis=-1)  # [N, H, W, 1]
-        labels = np.repeat(labels[:, None], 3, axis=1)  # [N, 3, H, W, 1]
+        #print(f'%%%%%%%%%%%%%%%%%%%%%%%%%{np.sum(np.isnan(labels))}')
+        # 全部都是NAN
+        labels = np.repeat(labels[:, None], 3, axis=1)  # [N, 3, H, W, 1] 数量x3
         # [N, ro+rd+rgb, H, W, 3]
         rays_rgb = np.concatenate([rays, images[:, None]], 1)
         print('rays_rgb.shape and labels.shape:', rays_rgb.shape,
                 labels.shape, images.shape, masks.shape, poses.shape)
+        ####################################
+        print(f'%%%%%%%%%%%%%%%%%%%%%%%%%{labels.size}')
+        print(f'%%%%%%%%%%%%%%%%%%%%%%%%%{np.sum(labels==1)}')
+        print(f'%%%%%%%%%%%%%%%%%%%%%%%%%{np.sum(labels==0)}')
         rays_rgb = np.concatenate([rays_rgb, labels], -1)
+        ####################################
+        #print(f'2@@@@@@@@@@@@@@@@@@@ {np.sum(np.isnan(rays_rgb))}')
         # [N, H, W, ro+rd+rgb, 3]
         rays_rgb = np.transpose(rays_rgb, [0, 2, 3, 1, 4])
         rays_rgb = np.stack([rays_rgb[i]
@@ -708,9 +721,15 @@ def train():
             rays_rgb_clf = rays_rgb[rays_rgb[:, :, 3] == 0].reshape(-1, 3, 4)
         
         rays_rgb_sds = rays_rgb.reshape(-1, 3, 4)
+        #print(f'!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! rays_rgb is {rays_rgb}')
+        print(f'3@@@@@@@@@@@@@@@@@@@ {rays_rgb[:, :, 3].shape} and {np.sum(np.isnan(rays_rgb))}')
+        print(f'!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! rays_rgb[:, :, 3] is {np.sum(rays_rgb[:, :, 3] == 0)}')
+        print(f'!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! rays_rgb[:, :, 3] is {np.sum(rays_rgb[:, :, 3] == 1)}')
+        print(f'rays_rgb shape:!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!: {rays_rgb.shape} and rays_rgb_clf shape is {rays_rgb_clf.shape} and rays_rgb[:, :, 3] is {rays_rgb[:, :, 3]}')
         if not args.prepare:                                               ################# modified #####################
-            rays_rgb = rays_rgb[rays_rgb[:, :, 3] == 1].reshape(-1, 3, 4)  ################# modified #####################
-            rays_inp = rays_inp[rays_rgb[:, :, 3] == 0].reshape(-1, 3, 4)       ################# modified #####################
+            rays_rgb_mask = rays_rgb[:, :, 3]
+            rays_rgb = rays_rgb[rays_rgb_mask == 1].reshape(-1, 3, 4)  ################# modified #####################
+            rays_inp = rays_inp[rays_rgb_mask == 0].reshape(-1, 3, 4)       ################# modified #####################
         
         print('shuffle rays')
         print(
@@ -806,22 +825,22 @@ def train():
             try:
                 batch_inp = next(raysINP_iter).to(device)
             except StopIteration:
-                raysINP_iter = iter(DataLoader(RayDataset(rays_inp), batch_size=N_rand, shuffle=True, num_workers=0))
+                raysINP_iter = iter(DataLoader(RayDataset(rays_inp), batch_size=N_rand, shuffle=True, num_workers=0)) #,generator=torch.Generator(device=device)
                 batch_inp = next(raysINP_iter).to(device)
             try:
                 batch = next(raysRGB_iter).to(device)
             except StopIteration:
-                raysRGB_iter = iter(DataLoader(RayDataset(rays_rgb), batch_size=N_rand, shuffle=True, num_workers=0))
+                raysRGB_iter = iter(DataLoader(RayDataset(rays_rgb), batch_size=N_rand, shuffle=True, num_workers=0)) #,generator=torch.Generator(device=device)
                 batch = next(raysRGB_iter).to(device)
             try:
                 batch_clf = next(raysRGBCLF_iter).to(device)
             except StopIteration:
-                raysRGBCLF_iter = iter(DataLoader(RayDataset(rays_rgb_clf), batch_size=N_rand, shuffle=True, num_workers=0))
+                raysRGBCLF_iter = iter(DataLoader(RayDataset(rays_rgb_clf), batch_size=N_rand, shuffle=True, num_workers=0)) #,generator=torch.Generator(device=device)
                 batch_clf = next(raysRGBCLF_iter).to(device)
             try: #######################add for SDS
                 batch_sds = next(raysRGBSDS_iter).to(device)
             except StopIteration:
-                raysRGBSDS_iter = iter(DataLoader(RayDataset(rays_rgb_sds), batch_size=N_rand, shuffle=True, num_workers=0))
+                raysRGBSDS_iter = iter(DataLoader(RayDataset(rays_rgb_sds), batch_size=N_rand, shuffle=True, num_workers=0)) #,generator=torch.Generator(device=device)
                 batch_sds = next(raysRGBSDS_iter).to(device)
 
             ################ add ################
@@ -889,7 +908,7 @@ def train():
             try:
                 batch_clf = next(raysRGBCLF_iter).to(device)
             except StopIteration:
-                raysRGBCLF_iter = iter(DataLoader(RayDataset(rays_rgb_clf), batch_size=N_rand, shuffle=False, num_workers=0))
+                raysRGBCLF_iter = iter(DataLoader(RayDataset(rays_rgb_clf), batch_size=N_rand, shuffle=False, num_workers=0,generator=torch.Generator(device=device)))
                 batch_clf = next(raysRGBCLF_iter).to(device)
             
             batch_clf = torch.transpose(batch_clf, 0, 1)
@@ -900,7 +919,7 @@ def train():
             try:
                 batch_inp = next(raysINP_iter).to(device)
             except StopIteration:
-                raysINP_iter = iter(DataLoader(RayDataset(rays_inp), batch_size=N_rand, shuffle=True, num_workers=0))
+                raysINP_iter = iter(DataLoader(RayDataset(rays_inp), batch_size=N_rand, shuffle=True, num_workers=0,generator=torch.Generator(device=device)))
                 batch_inp = next(raysINP_iter).to(device)
             batch_inp = torch.transpose(batch_inp, 0, 1)
             batch_inp, target_inp = batch_inp[:2], batch_inp[2]
@@ -1055,7 +1074,7 @@ def train():
         if args.i_video > 0 and i % args.i_video == 0 and i >= 0:  # todo replace i > 4000 with i > 0
             # Turn on testing mode
             with torch.no_grad():
-                rgbs, disps, _ = render_path(render_poses, hwf, args.chunk, render_kwargs_test,
+                rgbs, disps, _ = render_path(render_poses, hwf, args.chunk, render_kwargs_test,savedir=f'/home/l.wanzhou/data/MVIP-NeRF/logs_ours/{expname}/imgs_result_rgb_inp',
                                              render_factor=args.render_factor, need_alpha=True)
             print('Done, saving', rgbs.shape, disps.shape)
             moviebase = os.path.join(basedir, expname,

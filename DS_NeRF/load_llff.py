@@ -100,6 +100,7 @@ def _load_data(basedir, factor=None, width=None, height=None, load_imgs=True, pr
     else:
         imgdir = os.path.join(basedir, 'images' + sfx + '/RGB_inpainted')
 
+    print(imgdir)
     mskdir = os.path.join(basedir, 'images' + sfx + '/label')
     depthdir = os.path.join(basedir, 'images' + sfx + '/Depth_inpainted')
 
@@ -154,9 +155,10 @@ def _load_data(basedir, factor=None, width=None, height=None, load_imgs=True, pr
             # msk = cv2.dilate(msk, np.ones((5, 5), np.uint8), iterations=5)
             masks.append(msk)
             mask_indices.append(i)
+            print('....................................................')
         except:
             masks.append(-np.ones((imgs.shape[0], imgs.shape[1])))
-
+    print(f'%%%%%%%%%%%%%%%%%%%%%%%%%{np.sum(np.isnan(masks))}')
     inpainted_depths = []
     for f in depthfiles:
         try:
@@ -424,8 +426,10 @@ def load_llff_data(basedir, factor=8, recenter=True, bd_factor=.75, spherify=Fal
 
     
     print('Loaded image data2:', images.shape, poses.shape, render_poses.shape, i_test.shape, inpainted_depths.shape, masks.shape)
-    poses = poses[40:, :,:]  # note that we manually select the training poses, which is slightly different SPIn-NeRF
+    #poses = poses[40:, :,:]  # note that we manually select the training poses, which is slightly different SPIn-NeRF
+    print(poses.shape)
     return images, poses, bds, render_poses, i_test, masks, inpainted_depths, mask_indices
+    #return images, poses, bds, poses, i_test, masks, inpainted_depths, mask_indices
     # return images[:40, ...], poses[:40, ...], bds, render_poses[:40, ...], i_test, masks[:40, ...], inpainted_depths[:40, ...], mask_indices
     
     

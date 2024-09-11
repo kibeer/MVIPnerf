@@ -1,5 +1,5 @@
-expname = 1
-datadir = ./data/1
+expname = front_pole
+datadir = ./data/front_pole
 
 N_gt = 0
 
@@ -7,9 +7,9 @@ basedir = ./logs_ours
 dataset_type = llff
 
 
-text = a stone park bench
-text_depth = a grasy scale image of park bench
-text_normal = a normal map of park bench
+text = flowers and plants in front of the building
+text_depth = a gray scale image of flowers and plants in front of the building
+text_normal = a normal map of flowers and plants in front of the building
 
 
 is_normal_guidance = True
@@ -32,8 +32,8 @@ N_importance = 64
 use_viewdirs = True
 raw_noise_std =1e0
 
-colmap_depth = True
-depth_loss = True
+colmap_depth = False
+depth_loss = False
 depth_lambda = 0.1
 
 no_ndc = True
@@ -41,9 +41,9 @@ lindisp = True
 
 render_factor = 1
 i_feat = 1000000
-i_video = 1500
+i_video = 500
 feat_weight = 0.1
-i_weights = 1500
+i_weights = 500
 
 lrate = 0.003
 lrate_decay = 10
